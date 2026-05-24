@@ -163,6 +163,13 @@ class TimeThread(Thread):
 def startstudy(learntime, x):
     global way1Succeed, way2Succeed, way1Failed, way2Failed
 
+    # 每个任务用独立session，避免状态污染
+    s = Session()
+    s.headers.update({
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+    })
+    s.cookies.update(session.cookies)
+
     scoid = x['id']
     url = f'https://welearn.sflep.com/Ajax/SCO.aspx?uid={uid}'
     referrer = 'https://welearn.sflep.com/student/StudyCourse.aspx'
@@ -174,7 +181,7 @@ def startstudy(learntime, x):
             "interactions": [],
             "launch_data": "",
             "progress_measure": "1",
-            "score": {"scaled": str(learntime / 100.0), "raw": "100"},
+            "score": {"scaled": str(learntime), "raw": "100"},
             "session_time": "0",
             "success_status": "unknown",
             "total_time": "0",
@@ -195,7 +202,7 @@ def startstudy(learntime, x):
     })
 
     # 开始学习
-    back = session.post(url, data={
+    back = s.post(url, data={
         'action': 'startsco160928',
         'uid': uid, 'cid': cid, 'scoid': scoid,
         'classid': classid, 'tid': '-1'
@@ -205,35 +212,35 @@ def startstudy(learntime, x):
     print(f'开始学习: {location}')
 
     # 设置CMI数据
-    session.post(url, data={
+    s.post(url, data={
         'action': 'setscoinfo',
         'cid': cid, 'scoid': scoid, 'uid': uid,
         'data': cmi_data,
         'isend': 'False'
     }, headers={'Referer': referrer})
 
-    # 提交学习结果 - 方式1: 指定正确率
-    req = session.post(url, data={
+    # 提交学习结果
+    req = s.post(url, data={
         'action': 'savescoinfo160928',
         'cid': cid, 'scoid': scoid, 'uid': uid,
-        'progress': '1', 'crate': str(learntime),
+        'progress': '100', 'crate': str(learntime),
         'status': 'unknown', 'cstatus': 'completed', 'trycount': '0'
     }, headers={'Referer': referrer})
 
     print(f'>>>>>>>>>>>>>>正确率: {learntime}%')
 
     if '"ret":0' in req.text:
-        print('方式1:成功!!!')
+        print('提交成功!!!')
         way1Succeed.append(0)
     else:
-        print('方式1:失败!!!')
+        print('提交失败!!!')
         way1Failed.append(0)
 
-    # 提交学习结果 - 方式2: 100%正确率
-    req = session.post(url, data={
+    # 方式2: 100%正确率
+    req = s.post(url, data={
         'action': 'savescoinfo160928',
         'cid': cid, 'scoid': scoid, 'uid': uid,
-        'progress': '1', 'crate': '100',
+        'progress': '100', 'crate': '100',
         'status': 'unknown', 'cstatus': 'completed', 'trycount': '0'
     }, headers={'Referer': referrer})
 
@@ -317,7 +324,7 @@ def startstudy_time(task_idx, statuses, target_time, x):
             "interactions": [],
             "launch_data": "",
             "progress_measure": "1",
-            "score": {"scaled": "1", "raw": "100"},
+            "score": {"scaled": "100", "raw": "100"},
             "session_time": str(session_time),
             "success_status": "unknown",
             "total_time": str(total_time),
@@ -347,7 +354,7 @@ def startstudy_time(task_idx, statuses, target_time, x):
     req = ts.post(url, data={
         'action': 'savescoinfo160928',
         'cid': cid, 'scoid': scoid, 'uid': uid,
-        'progress': '1', 'crate': '100',
+        'progress': '100', 'crate': '100',
         'status': 'unknown', 'cstatus': 'completed', 'trycount': '0'
     }, headers={'Referer': referrer})
 
@@ -657,12 +664,12 @@ if __name__ == '__main__':
             for item in items:
                 if not isinstance(item, dict):
                     continue
-                if item.get('isvisible') != 'true':
-                    skip_count += 1
-                    continue
-                if mode == '1' and item.get('iscomplete') == '已完成':
-                    skip_count += 1
-                    continue
+                # if item.get('isvisible') != 'true':
+                #     skip_count += 1
+                #     continue
+                # if mode == '1' and item.get('iscomplete') == '已完成':
+                #     skip_count += 1
+                #     continue
 
                 scoid = item['id']
                 location = item.get('location', scoid)
@@ -674,7 +681,12 @@ if __name__ == '__main__':
                         learntime = mytime
                 else:
                     if randommode:
-                        learntime = random.randint(min(mycrate), max(mycrate)) if len(mycrate) > 1 else mycrate[0]
+                        if len(mycrate) > 1:
+                            lo, hi = min(mycrate), max(mycrate)
+                            learntime = int(round(random.gauss((lo + hi) / 2, (hi - lo) / 6)))
+                            learntime = max(lo, min(hi, learntime))
+                        else:
+                            learntime = mycrate[0]
                     else:
                         learntime = mycrate
 
