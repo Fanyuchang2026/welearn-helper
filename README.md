@@ -1,4 +1,4 @@
-# WeLearn Helper v4.0.0
+# WeLearn Helper v1.0.0
 
 WE Learn (SFLEP) 自动刷课/刷时长工具
 
@@ -37,7 +37,7 @@ pyinstaller --onefile --name welearn welearn_decompiled.py
 
 ## 更新日志
 
-### v4.0.0 (2026-05-24)
+### v1.0.0 (2026-05-24)
 - 适配 2026 年新 SSO 登录系统 (OIDC)
 - 时长刷取改为多线程并发 + 实时进度刷新
 - 课程刷取支持双重提交策略（指定正确率 + 100%正确率）
