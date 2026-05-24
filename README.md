@@ -42,3 +42,7 @@ pyinstaller --onefile --name welearn welearn_decompiled.py
 - 时长刷取改为多线程并发 + 实时进度刷新
 - 课程刷取支持双重提交策略（指定正确率 + 100%正确率）
 - 新增网络请求重试机制
+
+##目前已知BUG
+- 正确率无法正确设置
+- 正确率无法重复设置(可修改跳过条件)
