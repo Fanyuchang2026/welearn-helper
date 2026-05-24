@@ -46,3 +46,8 @@ pyinstaller --onefile --name welearn welearn_decompiled.py
 ##目前已知BUG
 - 正确率无法正确设置
 - 正确率无法重复设置(可修改跳过条件)
+
+
+# WeLearn Helper v1.1.1
+
+##已修复bug
