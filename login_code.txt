@@ -1,0 +1,133 @@
+username, password) {
+          const [pwd, ts] = PasswordManager.encrypt(password);
+          const params = {
+            account: username,
+            pwd: pwd,
+            ts: ts,
+            rturl: loginState.initParams.rturl,
+          };
+
+          // 添加图片验证码参数（如果需要）
+          if (loginState.needImageCaptcha) {
+            params.icode = Utils.getFormValue("image-code");
+            params.sign = document.querySelector(".verimg-login")?.id || "";
+          }
+
+          // 添加短信验证码参数（如果需要）
+          if (loginState.needSmsVerify) {
+            params.vcode = Utils.getFormValue("sms-code");
+            params.vcToken = loginState.vcToken;
+          }
+
+          return params;
+        },
+
+        // 处理登录失败
+        handleFailure(res) {
+          // 场景2: 普通密码错误，累计失败次数
+          loginState.failCount++;
+
+          // 连续失败 >= 3次，显示图片验证码
+          if (loginState.failCount >= CONFIG.MAX_LOGIN_FAIL_COUNT) {
+            CaptchaManager.show();
+          } else if (loginState.needImageCaptcha) {
+            // 已显示图片验证码时，刷新即可
+            CaptchaManager.refresh();
+          }
+
+          Utils.showMessage("账号密码错误，请重新输入！");
+          Utils.setButtonDisabled("#login", false);
+        },
+
+        // 执行登录 - 修复版本：支持短信验证码二次提交
+        async execute() {
+          Utils.setButtonDisabled("#login", true);
+
+          // 1. 表单验证（用户名/密码/验证码）
+          if (!this.validateForm()) {
+            Utils.setButtonDisabled("#login", false);
+            return;
+          }
+
+          try {
+            // 🔹 场景A: 短信验证阶段 - 用户已输入短信码，点击登录提交验证
+            if (loginState.needSmsVerify) {
+              const res = await SmsManager.consume();
+              handleLoginResult(res);
+              return; // ✅ 短信验证流程结束，不执行下方正常登录逻辑
+            }
+
+            // 🔹 场景B: 正常登录阶段 - 首次提交用户名+密码
+            const username = Utils.getFormValue("username");
+            const password = Utils.getFormValue("password");
+            const params = this.buildParams(username, password);
+
+            const res = await fetchpost("/account/login", Qs.stringify(params));
+            handleLoginResult(res);
+          } catch (error) {
+            console.error("登录请求失败:", error);
+            Utils.showMessage("网络异常，请稍后重试");
+          } finally {
+            // ✅ 确保按钮最终恢复可点击状态
+            Utils.setButtonDisabled("#login", false);
+          }
+        },
+      };
+
+      // ==================== 第三方登录 ====================
+      const ThirdPartyLogin = {
+        redirect(baseUrl) {
+          const rturl = loginState.initParams.rturl;
+          const url = rturl
+            ? `${baseUrl}&rturl=${encodeURIComponent(rturl)}`
+            : baseUrl;
+          window.location.href = url;
+        },
+
+        qq() {
+          if (typeof qqLoginUrl !== "undefined") {
+            this.redirect(qqLoginUrl);
+          }
+        },
+
+        wechat() {
+          if (typeof wxLoginUrl !== "undefined") {
+            this.redirect(wxLoginUrl);
+          }
+        },
+
+        apple() {
+          if (typeof appleLoginUrl !== "undefined") {
+            this.redirect(appleLoginUrl);
+          }
+        },
+      };
+
+      // ==================== 登录结果处理 ====================
+      function handleLoginResult(res) {
+        if (res?.code === 0) {
+          // ✅ 登录成功：重置失败计数
+          loginState.failCount = 0;
+          // 场景1: 服务器要求短信验证（最高优先级）
+          if (res?.extraCheck?.vcToken) {
+            SmsManager.show(res.extraCheck.vcToken);
+            Utils.showMessage("为了您的账号安全，请先完成短信验证码验证！");
+            Utils.setButtonDisabled("#login", false);
+            return;
+          }
+          if (typeof redirect === "function") {
+            redirect(res.data);
+          } else if (typeof baseUrl !== "undefined") {
+            window.location.href = baseUrl + res.data;
+          }
+        } else {
+          LoginHandler.handleFailure(res);
+        }
+      }
+
+      // ==================== 事件绑定 ====================
+      function bindEvents() {
+        // 登录按钮
+        document
+          .getElementById("login")
+          ?.addEventListe
